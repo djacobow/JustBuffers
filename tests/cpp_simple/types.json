@@ -1,0 +1,12 @@
+{
+    "t0": [
+        { "type": "u32", "name": "fee" },
+        { "type": "u16", "name": "fi" },
+        { "type": "u64", "name": "fo" },
+        { "type": "u8",  "name": "fum", "counts": 128 }
+    ],
+    "t1": [
+        { "type": "t0", "name": "t0s", "counts": [2,2] },
+        { "type": "u16", "name": "blee" }
+    ]
+}

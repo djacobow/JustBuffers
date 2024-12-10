@@ -4,7 +4,8 @@ import sys
 import datetime
 from .. import util
 
-def generate(typeinfo, elaborated):
+def generate(typeinfo, elaborated, packed):
+    packed = '__attribute__((packed))' if packed else ''
     os = [ f'''
 #pragma once
 /* 
@@ -20,7 +21,7 @@ def generate(typeinfo, elaborated):
     ''' ]
 
     for t_name, t_info in elaborated.items():
-        os.append(f'typedef struct {t_name} {{')
+        os.append(f'typedef struct {packed} {t_name} {{')
         for m_info in t_info['members']:
             if util.is_scalar(m_info):
                 a_str = '';

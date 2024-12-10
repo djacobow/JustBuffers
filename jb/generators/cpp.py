@@ -130,11 +130,11 @@ def gen_fromJS(t_info, elaborated):
     return os
 
 
-def generate(typeinfo, elaborated):
+def generate(typeinfo, elaborated, packed=False):
     os = [ gen_prolog() ]
-
+    packed = '__attribute__((packed))' if packed else ''
     for t_name, t_info in elaborated.items():
-        os.append(f'class {t_name} {{')
+        os.append(f'class {t_name} {packed} {{')
         os.append('  public:')
         os += gen_plain_data_members(typeinfo, t_info);
         os += gen_constructors(t_name)

@@ -58,13 +58,14 @@ class JustBufferator():
                     m_t_size = elaborated[m_t_name]['size']
                 else:
                     messages.append(('error', f'no known type {m_t_name}'))
-                misalignment = offset % req_align 
-                if misalignment:
-                    needed_alignment = req_align - misalignment
-                    self.__addPlaceHolders(needed_alignment, elaborated[t_name], placeholder_count, offset)
-                    offset += needed_alignment
-                    placeholder_count += 1
-                    messages.append(('info',f'struct "{t_name}": alignment placeholder size {needed_alignment} inserted before "{m_name}"'))
+                if not self.packed:
+                    misalignment = offset % req_align 
+                    if misalignment:
+                        needed_alignment = req_align - misalignment
+                        self.__addPlaceHolders(needed_alignment, elaborated[t_name], placeholder_count, offset)
+                        offset += needed_alignment
+                        placeholder_count += 1
+                        messages.append(('info',f'struct "{t_name}": alignment placeholder size {needed_alignment} inserted before "{m_name}"'))
 
                 m_elaborated['align'] = req_align
                 m_elaborated['offset'] = offset
@@ -83,13 +84,14 @@ class JustBufferator():
                 total_req_align = 8
             elaborated[t_name]['align'] = total_req_align
 
-            misalignment = offset % total_req_align
-            if misalignment:
-                needed_alignment = total_req_align - misalignment
-                messages.append(('info',f'struct "{t_name}": padding placeholder size {needed_alignment} appended'))
-                self.__addPlaceHolders(needed_alignment, elaborated[t_name], placeholder_count, offset)
-                offset += needed_alignment
-                placeholder_count += 1
+            if not self.packed:
+                misalignment = offset % total_req_align
+                if misalignment:
+                    needed_alignment = total_req_align - misalignment
+                    messages.append(('info',f'struct "{t_name}": padding placeholder size {needed_alignment} appended'))
+                    self.__addPlaceHolders(needed_alignment, elaborated[t_name], placeholder_count, offset)
+                    offset += needed_alignment
+                    placeholder_count += 1
 
             elaborated[t_name]['size'] = offset
             
@@ -110,7 +112,7 @@ class JustBufferator():
                 if len(flat_values) < total_count:
                     enc_messages.append(('warning', f'input for {m_info["name"]} too short'))
                     flat_values += [0] * (total_count - len(flat_values))
-                obytes = struct.pack(f'<{total_count}{fmt}', *flat_values)     
+                obytes = struct.pack(f'{self.pack_endian}{total_count}{fmt}', *flat_values)     
             else:
                 m_t_info = self.elaborated[m_type]
                 if len(flat_values) < total_count:
@@ -142,7 +144,7 @@ class JustBufferator():
             if m_t_info is not None:
                 total_size = total_count * m_t_info['size']
                 fmt = m_t_info['pack']
-                d_ary = struct.unpack(f'<{total_count}{fmt}', data[:total_size])
+                d_ary = list(struct.unpack(f'{self.pack_endian}{total_count}{fmt}', data[:total_size]))
                 # print(m_info['name'], m_info['type'], d_ary)
             else:
                 m_t_info = self.elaborated[m_type]
@@ -165,16 +167,17 @@ class JustBufferator():
 
 
     def generateCPPHeader(self):
-        return generators.cpp.generate(self.typeinfo, self.elaborated)
+        return generators.cpp.generate(self.typeinfo, self.elaborated, self.packed)
 
 
     def generateCHeader(self):
-        return generators.c.generate(self.typeinfo, self.elaborated)
+        return generators.c.generate(self.typeinfo, self.elaborated, self.packed)
 
-    def __init__(self, configs):
+    def __init__(self, configs, big_endian=False, packed=False):
         self.elab_messages = None
         self.elaborated = None
-
+        self.pack_endian = '>' if big_endian else '<'
+        self.packed = packed
         self.configs = configs
         self.__elaborateConfigs()
 
@@ -207,6 +210,16 @@ def getArgs():
         help='show the detailed struct info after elaboration; useful for debug',
         action='store_true',
     )
+    ap.add_argument(
+        '-b' ,'--big-endian',
+        help='tell the python code to use big-endian encodings. Does not affect the headers!',
+        action='store_true',
+    )
+    ap.add_argument(
+        '-p' ,'--packed',
+        help='make the struct packed',
+        action='store_true',
+    )
     meg = ap.add_mutually_exclusive_group()
     meg.add_argument(
         '-d', '--decode',
@@ -232,7 +245,11 @@ def showMessages(name, messages):
 
 
 def main(args):
-    j = JustBufferator(json.loads(args.config.read()))
+    j = JustBufferator(
+        json.loads(args.config.read()),
+        big_endian=args.big_endian,
+        packed=args.packed
+    )
     showMessages('Elaboration Messages:', j.elab_messages)        
 
     if args.dump:

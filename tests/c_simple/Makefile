@@ -19,7 +19,7 @@ c_encoded.bin: c_encoder
 c_encoder: c_encode.c types.h
 	gcc -o c_encoder c_encode.c
 
-types.h: types.json
+types.h: types.json ../../command.py ../../jb/justbuffers.py
 	../../command.py -c types.json --generate-c types.h
 
 clean:
