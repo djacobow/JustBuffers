@@ -96,7 +96,7 @@ def gen_fromJS(t_info, elaborated):
         os.append(f'      if (j.contains("{m_name}")) {{')
         if util.is_scalar(m_info):
             if m_info['type'] in elaborated:
-                os.append(f'        {m_name}.fromJS(j.at("{m_name}));')
+                os.append(f'        {m_name}.fromJS(j.at("{m_name}"));')
             else:
                 os.append(f'        {m_name} = j.at("{m_name}");')
         else:
