@@ -145,6 +145,8 @@ class JustBufferator():
                 total_size = total_count * m_t_info['size']
                 fmt = m_t_info['pack']
                 d_ary = list(struct.unpack(f'{self.pack_endian}{total_count}{fmt}', data[:total_size]))
+                if m_type == 'bool':
+                    d_ary = [ bool(x) for x in d_ary ]
                 # print(m_info['name'], m_info['type'], d_ary)
             else:
                 m_t_info = self.elaborated[m_type]
@@ -233,7 +235,11 @@ def getArgs():
         metavar = ('INPUT_json', 'OUTPUT_bin'),
         nargs=2,
     )
-
+    ap.add_argument(
+        '-t', '--type',
+        help='name of type in spec file to use for encode or decode',
+        type=str
+    )
     return ap.parse_args()
 
 
@@ -267,14 +273,17 @@ def main(args):
         with open(args.generate_cpp[0], 'w') as ofh:
             ofh.write(h)
 
+    if (args.decode or args.encode) and not args.type:
+        print('If encoding or decoding, you need to specify the name of struct with --type')
+
     if args.decode:
         with open(args.decode[0], 'rb') as ifh:
-            d = j.decodeBuffer(ifh.read())
+            d = j.decodeBuffer(args.type, ifh.read())
         with open(args.decode[1], 'w') as ofh:
             ofh.write(json.dumps(d, indent=2))
     elif args.encode:
         with open(args.encode[0], 'r') as ifh:
-            b = j.encodeBuffer(json.loads(ifh.read()))
+            b = j.encodeBuffer(args.type, json.loads(ifh.read()))
         with open(args.encode[1], 'wb') as ofh:
             ofh.write(b)
         

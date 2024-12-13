@@ -7,11 +7,11 @@ def powerOfTwoEqualOrMoreThan(n):
         o *= 2
     return o
 
+# TODO just make this recursive to handle any number of dimensions
 def unflattenArray(a, dims):
-    total_count = functools.reduce(operator.mul, dims)
     def chunkify_array(ia, chunksize):
         oa = []
-        for i in range(int(total_count/ chunksize)):
+        for i in range(int(len(ia)/ chunksize)):
             start = i * chunksize
             end   = start + chunksize
             oa.append(ia[start:end])
@@ -27,8 +27,14 @@ def unflattenArray(a, dims):
         return chunkify_array(a, dims[1])
     elif dimlen == 3:
         v0 = chunkify_array(a, dims[2])
-        return chunkify_array(v0, dims[1])
-      
+        v1 = chunkify_array(v0, dims[1])
+        return v1
+    elif dimlen == 4:
+        v0 = chunkify_array(a, dims[3])
+        v1 = chunkify_array(v0, dims[2])
+        v2 = chunkify_array(v0, dims[1])
+        return v2
+ 
 def flattenArrays(a):
     if not isinstance(a,(list, tuple)):
         return [a]
