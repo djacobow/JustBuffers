@@ -1,46 +1,52 @@
 # Just Buffers
 
-You've tried the rest, now try the best!
+You've tried the rest, now try the ~~best!~~ pretty darn good,
+and simple, too.
 
 ## What are Just Buffers?
 
 Just Buffers are just ... buffers. Or, more precisely, they are "C"
 structs. These are the same structs that you might write yourself
-to hold hour data, except that they are generated for you from a
-specification. This allows for a few good things to happen:
+to hold your data, except that they are generated for you from a
+simple JSON specification. This lets python and other programs to
+read in that spec without having to be able to make sense of a header
+directly. This, in turn, allows for a few good things to happen:
 
 * you get automatic Python support for encoding and decoding
 * you get clear indications where alignment rules have created gaps
+  (and by default, those gaps are filled with named placeholders
+  that you can fill later when you realize you forgot something!)
 * you only have to specify them in one file, and everything comes
-  from.
+  from that.
 
-The philosophy of Just Buffers is simple: the C struct is kept
-simple and straighforward, so that from C using them is basically
-frictionnless and without overhead. At the same time, Python has
-easy access to blobs of data in Just Buffers form.
+The philosophy of Just Buffers is simple: the C struct has primacy.
+It is kept simple and straighforward, so that from C using them is
+basically frictionnless and without overhead. Furthermore, the C
+struct is the storage form and the use form. You don't do conversions
+in C, to encode to and from. At the same time, Python has easy functions
+to encode and decode. This puts the hard work where it is easy.
 
-## What about protobuf / nanopb / CapnProto / JSON ...
+## What about [protobuf](https://protobuf.dev/) / [nanopb](https://github.com/nanopb/nanopb) / [Cap'nProto](https://capnproto.org/) / [FlatBuffers](https://flatbuffers.dev/) / [JSON](https://www.json.org/json-en.html) / ...
 
-All of those are wonderful tools, but I created Just Buffers because
+All of those are wonderful tools, and you certainly won't get fired
+for using them in your project, but I created Just Buffers because
 I found those tools to be fussier than I needed or wanted for most
-applications. They solved more problems (like validation) than I
-needed, and they came at a cost: special compilers, and compilation
-steps, etc.
+applications. They solved more problems (like validation) than I needed,
+and they came at a cost: special compilers, compilation steps, their
+own languages and rules, deps, etc.
 
-On the other hand, Just Buffers is implemented in simple Python
-with NO dependencies whatsoever. This means that no matter your
-system and configuration and whatever else you've got going on,
-if you have Python running at all, you can use Just Buffers.
+On the other hand, Just Buffers is implemented in simple Python with _NO_
+extra dependencies whatsoever. This means that no matter your system
+and configuration and whatever else you've got going on, if you have
+Python3 running at all, you can use Just Buffers.
 
 ## How does it work?
 
 The Just Buffers python module reads a simple specification,
 usually as JSON, and can immediately be used to encode and decode
-buffers. If you want to generate a header file for C or C++,
-you can call appropriate functions to do that.
-
-There is also a command-line version of Just Buffers here, called
-`command.py`
+buffers. Just instantiate a `JustBufferator()` object. From there,
+you can call, encode, decode, or member function that generates
+a header for you. There is also a command-line tool called `jb.py`.
 
 For example, let's say we have the following specification in a file called `spec.json`:
 
@@ -62,7 +68,7 @@ For example, let's say we have the following specification in a file called `spe
 You could run:
 
 ```sh
-$ ./command.py -c spec.json --generate-c structs.h
+$ ./jb.py -c spec.json --generate-c structs.h
 ```
 
 That would create a file like this one:
@@ -98,9 +104,9 @@ typedef struct  t1_t {
 STATIC_ASSERT(sizeof(t1) == 0x248);
 ```
 
-That asserts in this header are there as a check that the C compiler and
+The asserts in this header are there as a check that the C compiler and
 Just Buffers agree about the layout. If they fail, it means there is a 
-bug in Just Buffers.
+bug in Just Buffers. Let me know!
 
 Anyway, you can use this header and its structs in your program and you could,
 save them to a file or write them to a socket or whatever. Perhaps, something
@@ -126,7 +132,6 @@ Later on, in python you could do:
 ```python
 
 import jb.justbuffers as jb
-class JustBufferator():
 
 j = jb.JustBufferator(json.loads(open('types.json','r').read()))
 decoded = j.decodeBuffer('t1_t', open('bloop.bin','rb').read())
@@ -136,47 +141,78 @@ Anyway, that's pretty much the gist.
 
 ## Portability
 
-### endianness
+### Endianness
 
-Just Buffers do not encode their endianness. By default, they are 
-little-endian, but you can also specify big-endian. This only affects
-the python decoder and encoder functions. The C struct is left alone,
-so the data will be LE or BE depending on the platform you compile it
-on.
+I made a decision not to try to manage endianness in Just Buffers.
+Most modern machines are little-endian, anyway.
 
-If you need to maintain endianness, then you will have to use `ntoa`-
-and `aton`-like functions on each member access.
+By default, therefore, the python code expects little-endian, and
+the C structs have no mention of endianness at all, so they get whatever
+your machine(s) do. There is an option in the python to use BE for
+encode/decode, if you need it.
 
-However, there aren't many BE machines out there these days, so this
-may not be a common problem.
+If you need to use Just Buffers in C on machines that are both BE
+and LE, then it will be necessary for you to use `ntoa` and `aton`-like
+functions when accessing member values.
 
-### sizes
+### Sizes
 
+Just Buffers only uses named-size types. So, instead of `int` we always
+specify `int32` or `int8`. In fact, this is the list of supported types:
+
+|name  | size |
+|------|------|
+|bool  | 1    |
+|u8    | 1    |
+|i8    | 1    |
+|u16   | 2    |
+|i16   | 2    |
+|u32   | 4    |
+|i32   | 4    |
+|u64   | 8    |
+|i64   | 8    |
+|float | 4    |
+|double| 8    |
+
+Just buffers allows you to use the types above as well as other Just
+Buffers, and do singly or in arrays of arbitrary dimension.
 All the member types have explicit sizes using stdint.h, so there is
 never any doubt as to their size.
 
-### strings
+### Strings
 
-Strings as such are not supported, the same as in C. You can, of course,
-make a fixed size `int8_t` array and put text data in it.
+Strings as such have the level of support they have in C -- very little.
+You can, of course, make a fixed-sized `int8` array and put text data in
+it. You can use a null to indicate the end of the string, as is normal in
+C or store a length along with it. Variable-length arrays are not supported.
 
-### alignment
+### Alignment
 
 Just Buffers does respect and follow the C alignment rules, so there
 should never be any issues with that. If you insist on packed structs,
-you can pass a `packed` flag to the JustBufferator constructor and 
+you can pass a `packed` flag to the `JustBufferator` constructor and 
 you'll get packed behavior.
 
 ### C++
 
-The normal header files from `.generateCHeader()` should be compatible
-with c++. However, there is also a function called `.generateCPPHeader()`.
-This will create a file that include `nlohmann::json` and code so that
-the structs have the ability to be converted to or from JSON. If this is
-something you need, by all means use it.
+The header files from `.generateCHeader()` should be compatible
+with C++. You can use them as-is.
+
+However, there is a small trick available to you that you will see
+in use in the tests in this repo. Namely, you can also call a function
+called `.generateCPPHeader()`.
+
+This will create a file defines a class much like the C struct, but
+which also includes [nlohmann::json](https://github.com/nlohmann/json)
+and the necessary code so that the class has the ability to be 
+converted to or from JSON. If this is something you thin is nice, by
+all means use it! (Of course, using this does at a dep on `nlohmann::json`.)
 
 ## Tests
 
 There are some tests in the `tests/` directory. They can be run by
-running `make`. 
+running the test shell or python scripts.
+
+Just Buffers has no deps, but running the tests does. You'll need
+gcc, g++, and nlohmann::json.
 

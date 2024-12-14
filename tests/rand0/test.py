@@ -2,60 +2,28 @@
 
 import sys
 import os
-import random
 import json
 import tempfile
-import subprocess
-import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__),'../../'))
 
 import jb.justbuffers
+import jb.jscompare
+import jb.randomspec
 
-def get_shell_output(args, **runargs):
-    runargs['stdout'] = subprocess.PIPE
-    r = subprocess.run(args, **runargs)
-    return (r.returncode, r.stdout.decode("utf-8", errors="ignore"))
-
-
-def makeSpecObject():
-    name_letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
-    names_used = {
-        'j': 1 # this is used in the c++ header
-    }
-
-    def makeName(maxl):
-        while True:
-            candidate = ''.join([random.choice(name_letters) for i in range(random.randint(1,maxl)) ])
-            if candidate not in names_used:
-                names_used[candidate] = 1
-                return candidate
-
-
-    def makeSimple(more_types=[]):
-        ms = []
-        s = {
-           makeName(10): ms    
-        }
-        elem_count = random.randint(1, 15)
-        for i in range(elem_count):
-            elem_type = random.choice(list(jb.justbuffers.JustBufferator.typeinfo.keys()) + more_types)
-            elem_dims = random.randint(0, 3)
-            elem_sizes = [ random.randint(1,10) for i in range(elem_dims) ]
-            if elem_dims > 0:
-                ms.append({'type': elem_type, 'name': makeName(10), 'counts': elem_sizes})
-            else:
-                ms.append({'type': elem_type, 'name': makeName(10)})
-        return s
-
-    s = {}
-    for i in range(0,4):
-        s.update(makeSimple())
-
-    top = makeSimple(list(s.keys()))
-    s.update(top)
-    return list(top.keys())[0], s
-
+# This test consists of the following steps:
+#
+# 0. generate a randomized specification of buffers. This
+#    spec includes a buffer that contains other buffers,
+#    as well as multidimensional arrays
+# 1. generate headers using the library
+# 2. compile programs in C and C++ using the headers
+# 3. Use the "C" program to generate a completely random file of the appropriate size
+# 4. Use a "C++" program to load that file and write it back out as JSON
+# 5. Use the library to also read that file and decode it
+# 6. Check that the json written by the c++ program and that decoded by python are identical
+#
+# This is repeated several times.
 
 def compileExes(tdir, spec, top):
     j = jb.justbuffers.JustBufferator(spec)
@@ -117,52 +85,35 @@ int main(int argc, char *argv[]) {{
     }
 
     for name, step in steps.items():
-        res = get_shell_output(step, cwd=os.path.abspath(tdir), shell=False, env={'PATH':'/usr/bin'})
+        res = jb.util.get_shell_output(step, cwd=os.path.abspath(tdir), shell=False, env={'PATH':'/usr/bin'})
         if res[0] != 0:
             print(f'FAIL at step {name}')
             print(res[1])
+            print(f"spec was: (top: {top})")
+            print(json.dumps(spec,indent=2,sort_keys=True))
             return False
         print(f'{name} complete')
     return True
 
-def compareSimple(a,b):
-    if isinstance(a, dict) and isinstance(b, dict):
-        return all([ (k in b) and compareSimple(v, b[k])  for k,v in a.items()  ])
-    elif isinstance(a, list) and isinstance(b, list):
-        if len(a) != len(b):
-            print(f'mismatch len {len(a)} {len(b)}')
-            return False 
-        return all([ compareSimple(a[i], b[i]) for i in range(len(a))])
-    else:
-        if a != b:
-            # we can treat none and nan as equivalent here
-            a_nothing = a is None or math.isnan(a)
-            b_nothing = b is None or math.isnan(b)
-            if not a_nothing or not b_nothing:
-                print(f'a {a} != b {b}')
-                return False
-        return True
-
-            
 def compare(tdir, spec, top):
     with open(os.path.join(tdir, "test.bin"), "rb") as ifh:
         js_jb = jb.justbuffers.JustBufferator(spec).decodeBuffer(top, ifh.read())
     with open(os.path.join(tdir, "test.json"), "r") as ifh:
         js_cpp = json.loads(ifh.read())
 
-    with open('a.json', 'w') as ofh:
+    with open(os.path.join(tdir,'a.json'), 'w') as ofh:
         ofh.write(json.dumps(js_jb, indent=2, sort_keys=True))
-    with open('b.json', 'w') as ofh:
+    with open(os.path.join(tdir,'b.json'), 'w') as ofh:
         ofh.write(json.dumps(js_cpp, indent=2, sort_keys=True))
 
-    return compareSimple(js_cpp, js_jb)
+    return jb.jscompare.compareSimple(js_cpp, js_jb)
 
 if __name__ == '__main__':
 
     for i in range(5):
         print(f"Iter {i}")
         with tempfile.TemporaryDirectory() as tdir:
-            top, spec = makeSpecObject()
+            top, spec = jb.randomspec.makeSpecObject()
             if not compileExes(tdir, spec, top):
                 print('Compilation / run failed')
                 sys.exit(-1)

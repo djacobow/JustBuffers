@@ -1,5 +1,12 @@
 import functools
 import operator
+import subprocess
+
+def get_shell_output(args, **runargs):
+    runargs['stdout'] = subprocess.PIPE
+    r = subprocess.run(args, **runargs)
+    return (r.returncode, r.stdout.decode("utf-8", errors="ignore"))
+    
 
 def powerOfTwoEqualOrMoreThan(n):
     o = 2
@@ -8,6 +15,10 @@ def powerOfTwoEqualOrMoreThan(n):
     return o
 
 # TODO just make this recursive to handle any number of dimensions
+
+
+# takes a one dimensional list and a list of dimensions and turns
+# it into an n-dimensional list of lists of list ...
 def unflattenArray(a, dims):
     def chunkify_array(ia, chunksize):
         oa = []
@@ -17,24 +28,20 @@ def unflattenArray(a, dims):
             oa.append(ia[start:end])
         return oa
 
-    dimlen = len(dims)
-    if dimlen == 1:
-        if dims[0] == 1:
-            return a[0]
-        else:
-            return a
-    elif dimlen == 2:
-        return chunkify_array(a, dims[1])
-    elif dimlen == 3:
-        v0 = chunkify_array(a, dims[2])
-        v1 = chunkify_array(v0, dims[1])
-        return v1
-    elif dimlen == 4:
-        v0 = chunkify_array(a, dims[3])
-        v1 = chunkify_array(v0, dims[2])
-        v2 = chunkify_array(v0, dims[1])
-        return v2
- 
+    if len(dims) == 0:
+        return a[0]
+    else:
+        ca = chunkify_array(a,dims[-1])
+        ua = unflattenArray(ca, dims[:-1])
+        # a list of one item is a special case. It's will be converted
+        # into a scalar
+        if len(ua) == 1 and not isinstance(ua[0],list):
+            return ua[0]
+        return ua
+
+
+# takes an n-dimensional list of list of list.. and turns it into
+# just one list
 def flattenArrays(a):
     if not isinstance(a,(list, tuple)):
         return [a]

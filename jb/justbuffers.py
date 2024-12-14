@@ -2,24 +2,56 @@
 
 import argparse
 import json
+import random
 import struct
+
 from . import util
 from . import generators
 
+# These are all the basic types that Just Buffers supprts.
+# The rand member is a function used by tests to generate test
+# data.
+TYPEINFO = {
+    'bool':   { 'size': 1, 'align': 1, 'pack': 'B', 'c_type': 'bool',
+                'rand': lambda: random.choice([True,False])
+    },
+    'u8':     { 'size': 1, 'align': 1, 'pack': 'B', 'c_type': 'uint8_t',
+                'rand': lambda: random.randint(0,255)
+    },
+    'i8':     { 'size': 1, 'align': 1, 'pack': 'b', 'c_type': 'int8_t',
+                'rand': lambda: random.randint(-128,127)
+    },
+    'u16':    { 'size': 2, 'align': 2, 'pack': 'H', 'c_type': 'uint16_t',
+                'rand': lambda: random.randint(0,65535)
+    },
+    'i16':    { 'size': 2, 'align': 2, 'pack': 'h', 'c_type': 'int16_t',
+                'rand': lambda: random.randint(-32768,32767)
+    },
+    'u32':    { 'size': 4, 'align': 4, 'pack': 'L', 'c_type': 'uint32_t',
+                'rand': lambda: random.randint(0,4294967295)
+    },
+    'i32':    { 'size': 4, 'align': 4, 'pack': 'l', 'c_type': 'int32_t',
+                'rand': lambda: random.randint(-2147483648, 2147483647)
+    },
+    'u64':    { 'size': 8, 'align': 8, 'pack': 'Q', 'c_type': 'uint64_t',
+                'rand': lambda: random.randint(0,0xffffffff_ffffffff)
+    },
+    'i64':    { 'size': 8, 'align': 8, 'pack': 'q', 'c_type': 'int64_t',
+                'rand': lambda: random.randint(0,0xffffffff_ffffffff) - 0x7fffffff_ffffffff
+    },
+    'float':  { 'size': 4, 'align': 4, 'pack': 'f', 'c_type': 'float',
+                'rand': lambda: struct.unpack('<f', struct.pack('<f', random.uniform(-3.4e38,3.4e38)))[0]
+    },
+    'double': { 'size': 8, 'align': 8, 'pack': 'd', 'c_type': 'double',
+                'rand': lambda: random.uniform(-1.79e308, 1.79e308)
+    },
+}
+
+def get_base_types():
+    return TYPEINFO
+
 class JustBufferator():
-    typeinfo = {
-        'bool':   { 'size': 1, 'align': 1, 'pack': 'B', 'c_type': 'bool',},
-        'u8':     { 'size': 1, 'align': 1, 'pack': 'B', 'c_type': 'uint8_t',},
-        'i8':     { 'size': 1, 'align': 1, 'pack': 'b', 'c_type': 'int8_t',},
-        'u16':    { 'size': 2, 'align': 2, 'pack': 'H', 'c_type': 'uint16_t',},
-        'i16':    { 'size': 2, 'align': 2, 'pack': 'h', 'c_type': 'int16_t',},
-        'u32':    { 'size': 4, 'align': 4, 'pack': 'L', 'c_type': 'uint32_t',},
-        'i32':    { 'size': 4, 'align': 4, 'pack': 'l', 'c_type': 'int32_t',},
-        'u64':    { 'size': 8, 'align': 8, 'pack': 'Q', 'c_type': 'uint64_t',},
-        'i64':    { 'size': 8, 'align': 8, 'pack': 'q', 'c_type': 'int64_t',},
-        'float':  { 'size': 4, 'align': 4, 'pack': 'f', 'c_type': 'float',},
-        'double': { 'size': 8, 'align': 8, 'pack': 'd', 'c_type': 'double',},
-    }
+    typeinfo = TYPEINFO
 
     def __addPlaceHolders(self, needed, elaborated, index, offset, name_pat = '__pad_{}'):
         placeholder = {
