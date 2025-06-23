@@ -45,7 +45,7 @@ def makeSpecObject():
         }
         elem_count = random.randint(1, 15)
         for i in range(elem_count):
-            elem_type = random.choice(list(justbuffers.get_base_types.keys()) + more_types)
+            elem_type = random.choice(list(justbuffers.get_base_types().keys()) + more_types)
             elem_dims = random.randint(0, 3)
             elem_sizes = [ random.randint(1,10) for i in range(elem_dims) ]
             if elem_dims > 0:
