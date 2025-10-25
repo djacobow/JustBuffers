@@ -25,8 +25,15 @@ import jb.randomspec
 #
 # This is repeated several times.
 
+def makeBufferator(spec):
+  return jb.justbuffers.JustBufferator(
+    spec, max_array_elements=2**20,
+    max_struct_size=2**20,
+    max_nesting_depth=2**8
+  )
+
 def compileExes(tdir, spec, top):
-    j = jb.justbuffers.JustBufferator(spec)
+    j = makeBufferator(spec)
     with open(os.path.join(tdir, "test.h"), 'w') as ofh:
         ofh.write(j.generateCHeader())
     with open(os.path.join(tdir, "test.hpp"), 'w') as ofh:
@@ -97,7 +104,7 @@ int main(int argc, char *argv[]) {{
 
 def compare(tdir, spec, top):
     with open(os.path.join(tdir, "test.bin"), "rb") as ifh:
-        js_jb = jb.justbuffers.JustBufferator(spec).decodeBuffer(top, ifh.read())
+        js_jb = makeBufferator(spec).decodeBuffer(top, ifh.read())
     with open(os.path.join(tdir, "test.json"), "r") as ifh:
         js_cpp = json.loads(ifh.read())
 
@@ -112,14 +119,23 @@ if __name__ == '__main__':
 
     for i in range(5):
         print(f"Iter {i}")
-        with tempfile.TemporaryDirectory() as tdir:
-            top, spec = jb.randomspec.makeSpecObject()
-            if not compileExes(tdir, spec, top):
-                print('Compilation / run failed')
-                sys.exit(-1)
-            if not compare(tdir, spec, top):
-                print('Check failed')
-                sys.exit(-1)
+        max_retries = 100
+        for retry in range(max_retries):
+            try:
+                with tempfile.TemporaryDirectory() as tdir:
+                    top, spec = jb.randomspec.makeSpecObject()
+                    if not compileExes(tdir, spec, top):
+                        print('Compilation / run failed')
+                        sys.exit(-1)
+                    if not compare(tdir, spec, top):
+                        print('Check failed')
+                        sys.exit(-1)
+                break
+            except (jb.justbuffers.ElaborationError, jb.justbuffers.SchemaValidationError) as e:
+                if retry == max_retries - 1:
+                    print(f'Failed after {max_retries} retries: {e}')
+                    sys.exit(-1)
+                continue
     sys.exit(0)
 
             

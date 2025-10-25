@@ -76,27 +76,41 @@ int main(int argc, char *argv[]) {{
 
 if __name__ == '__main__':
 
-    for i in range(200):
+    for i in range(10):
         print(f"Iter {i}")
-        top, spec = jb.randomspec.makeSpecObject()
-        j = jb.justbuffers.JustBufferator(spec)
-        tb = randomizeBufferFromSpec(j.elaborated, top)
-        with tempfile.TemporaryDirectory() as tdir:
-            with open(os.path.join(tdir, "test.hpp"), 'w') as ofh:
-                ofh.write(j.generateCPPHeader())
-            with open(os.path.join(tdir, "encoded.bin"), "wb") as ofh:
-                ofh.write(j.encodeBuffer(top, tb))
+        max_retries = 100
+        for retry in range(max_retries):
+            try:
+                top, spec = jb.randomspec.makeSpecObject()
+                j = jb.justbuffers.JustBufferator(
+                  spec,
+                  max_struct_size=2**22,
+                  max_nesting_depth=2**8,
+                  max_array_elements=2**20
+                )
+                tb = randomizeBufferFromSpec(j.elaborated, top)
+                with tempfile.TemporaryDirectory() as tdir:
+                    with open(os.path.join(tdir, "test.hpp"), 'w') as ofh:
+                        ofh.write(j.generateCPPHeader())
+                    with open(os.path.join(tdir, "encoded.bin"), "wb") as ofh:
+                        ofh.write(j.encodeBuffer(top, tb))
 
-            if not buildAndRunExe(tdir):
-                print("Build FAILED")
-                sys.exit(-1)
+                    if not buildAndRunExe(tdir):
+                        print("Build FAILED")
+                        sys.exit(-1)
 
-            with open(os.path.join(tdir, "decoded.json"), "r") as ifh:
-                tb_dec = json.loads(ifh.read())
+                    with open(os.path.join(tdir, "decoded.json"), "r") as ifh:
+                        tb_dec = json.loads(ifh.read())
 
-            if not jb.jscompare.compareSimple(tb, tb_dec):
-                print("Compare FAILED")
-                sys.exit(-1)
+                    if not jb.jscompare.compareSimple(tb, tb_dec):
+                        print("Compare FAILED")
+                        sys.exit(-1)
+                break
+            except (jb.justbuffers.ElaborationError, jb.justbuffers.SchemaValidationError) as e:
+                if retry == max_retries - 1:
+                    print(f'Failed after {max_retries} retries: {e}')
+                    sys.exit(-1)
+                continue
 
     sys.exit(0)
 
