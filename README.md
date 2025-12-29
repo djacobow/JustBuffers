@@ -8,7 +8,7 @@ and simple, too.
 Just Buffers are just ... buffers. Or, more precisely, they are "C"
 structs. These are the same structs that you might write yourself
 to hold your data, except that they are generated for you from a
-simple JSON specification. This lets python and other programs to
+simple JSON specification. This lets python and other programs
 read in that spec without having to be able to make sense of a header
 directly. This, in turn, allows for a few good things to happen:
 
@@ -20,8 +20,8 @@ directly. This, in turn, allows for a few good things to happen:
   from that.
 
 The philosophy of Just Buffers is simple: the C struct has primacy.
-It is kept simple and straighforward, so that from C using them is
-basically frictionnless and without overhead. Furthermore, the C
+It is kept simple and straightforward, so that from C using them is
+basically frictionless and without overhead. Furthermore, the C
 struct is the storage form and the use form. You don't do conversions
 in C, to encode to and from. At the same time, Python has easy functions
 to encode and decode. This puts the hard work where it is easy.
@@ -114,7 +114,7 @@ like this:
 
 ```c
 #include <stdio.h>
-#include <stlib.h>
+#include <stdlib.h>
 #include "struct.h"
 
 int main(int argc, char *argv[]) {
@@ -204,9 +204,9 @@ called `.generateCPPHeader()`.
 
 This will create a file defines a class much like the C struct, but
 which also includes [nlohmann::json](https://github.com/nlohmann/json)
-and the necessary code so that the class has the ability to be 
-converted to or from JSON. If this is something you thin is nice, by
-all means use it! (Of course, using this does at a dep on `nlohmann::json`.)
+and the necessary code so that the class has the ability to be
+converted to or from JSON. If this is something you think is nice, by
+all means use it! (Of course, using this does add a dep on `nlohmann::json`.)
 
 ## Tests
 
